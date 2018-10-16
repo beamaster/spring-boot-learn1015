@@ -1,6 +1,16 @@
 package com.steam.springbootlearn;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.steam.springbootlearn.util.FTPUtil;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -19,12 +29,19 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 
 import javax.sql.DataSource;
+import java.util.Map;
 
 @EnableScheduling
 @EnableCaching
 @SpringBootApplication
 public class SpringBootLearnApplication extends SpringBootServletInitializer
     implements SchedulingConfigurer {
+
+    private static Logger logger = LoggerFactory.getLogger(SpringBootLearnApplication.class);
+
+    private static String fromPath;
+    private static String toPath;
+    private static String suffix;
 
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder applicationBuilder){
@@ -76,18 +93,55 @@ public class SpringBootLearnApplication extends SpringBootServletInitializer
         return new JdbcTemplate(source);
     }
 
-    public static void main(String[] args) {
-        SpringApplication.run(SpringBootLearnApplication.class, args);
-        System.out.println("hello,it's time:" + System.currentTimeMillis());
+    /**
+     * 创建启动传值参数
+     * @return
+     */
+    private static Options createOption(){
+        Options options = new Options();
+        options.addOption("help",false,"帮助");
+        options.addOption(OptionBuilder.create("fromPath"));
+//        options.addOption(OptionBuilder.withArgName("FromPath").hasArg().withDescription("原始路径").create("fromPath"));
+        options.addOption(OptionBuilder.hasArg(true).withDescription("原始路径").create("fromPath"));
+        options.addOption(OptionBuilder.hasArg(true).withDescription("目标路径").create("toPath"));
+        options.addOption(OptionBuilder.hasArg(true).withDescription("后缀格式").create("suffix"));
+        return options;
     }
+
+    public static void main(String[] args) {
+        Options options = createOption();
+        CommandLineParser parser = new PosixParser();
+        try {
+            CommandLine command = parser.parse(options,args);
+            if (command.hasOption("help")){
+                HelpFormatter formatter = new HelpFormatter();
+                formatter.printHelp("ant",options);
+                return;
+            }else if((fromPath = command.getOptionValue("fromPath"))==null ||
+                    (toPath = command.getOptionValue("toPath"))==null ||
+                    (suffix=command.getOptionValue("suffix"))==null){
+                logger.info("———缺少必要参数—————");
+                return;
+            }
+        } catch (ParseException pe) {
+            logger.info("main...ParseException..." + pe);
+        }
+        SpringApplication.run(SpringBootLearnApplication.class, args);
+        logger.info("it's time:" + System.currentTimeMillis());
+    }
+
 
     /**
      * 每天执行6次
      * 7:15,7:30,7:45
      * 8:15,8:30,8:45
      */
-    @Scheduled(cron = "0 15,30,45 7,8 6/1 * ?")
-    public void execTask1(){
-        //do something
+//    @Scheduled(cron = "0 15,30,45 7,8 6/1 * ?")
+    @Scheduled(fixedRate =60000)
+    public void execTransmitTask(){
+        logger.info("开始传输...");
+        Map<String,Object> map = FTPUtil.uploadSpecifiedSuffixFile(fromPath,toPath,suffix);
+        logger.info("传输成功...");
+        logger.info("传输失败...");
     }
 }
