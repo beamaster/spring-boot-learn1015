@@ -17,9 +17,9 @@ public class FTPUtil {
     private static Logger logger = LoggerFactory.getLogger(FTPUtil.class);
 
     private static String url = "45.40.193.253";
-    private static Integer port = 4004;
-    private static String username = "kai2018";
-    private static String password = "kai2018";
+    private static Integer port = 1006;
+    private static String username = "kai2024";
+    private static String password = "ftp@kai2024";
 
 
     public static Boolean uploadFile(String pathName, String fileName, InputStream inputStream) {

@@ -1,16 +1,13 @@
 package com.steam.springbootlearn;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.steam.springbootlearn.service.CommonService;
 import com.steam.springbootlearn.util.FTPUtil;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -20,6 +17,7 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -29,6 +27,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 
 import javax.sql.DataSource;
+import java.util.List;
 import java.util.Map;
 
 @EnableScheduling
@@ -61,35 +60,26 @@ public class SpringBootLearnApplication extends SpringBootServletInitializer
         return scheduler;
     }
 
-
-    @Bean(name = "mysql127Source")
-    @ConfigurationProperties(prefix = "mysql127.datasource")
+    @Primary
+    @Bean(name = "localSource")
+    @ConfigurationProperties(prefix = "c3p0")
     public DataSource mysql127Source(){
         return DataSourceBuilder.create().type(ComboPooledDataSource.class).build();
     }
 
-    @Bean(name = "mysql235Source")
-    @ConfigurationProperties(prefix = "mysql235.datasource")
-    public DataSource mysql235Source(){
+    @Bean(name = "localTemplate")
+    public JdbcTemplate mysql127Template(@Qualifier("localSource") DataSource source){
+        return new JdbcTemplate(source);
+    }
+
+    @Bean(name = "qqSource")
+    @ConfigurationProperties(prefix = "c3p0.qq")
+    public DataSource qqSource(){
         return DataSourceBuilder.create().type(ComboPooledDataSource.class).build();
     }
 
-    @Bean(name = "oracle235Source")
-    @ConfigurationProperties(prefix = "oracle235.datasource")
-    public DataSource oracle235Source(){
-        return DataSourceBuilder.create().type(ComboPooledDataSource.class).build();
-    }
-
-    @Bean(name = "mysql127Template")
-    public JdbcTemplate mysql127Template(@Qualifier("mysql127Source") DataSource source){
-        return new JdbcTemplate(source);
-    }
-    @Bean(name = "mysql235Template")
-    public JdbcTemplate mysql235Template(@Qualifier("mysql235Source") DataSource source){
-        return new JdbcTemplate(source);
-    }
-    @Bean(name = "oracle235Template")
-    public JdbcTemplate oracle235Template(@Qualifier("oracle235Source") DataSource source){
+    @Bean(name = "qqTemplate")
+    public JdbcTemplate qqTemplate(@Qualifier("qqSource") DataSource source){
         return new JdbcTemplate(source);
     }
 
@@ -109,7 +99,7 @@ public class SpringBootLearnApplication extends SpringBootServletInitializer
     }
 
     public static void main(String[] args) {
-        Options options = createOption();
+        /*Options options = createOption();
         CommandLineParser parser = new PosixParser();
         try {
             CommandLine command = parser.parse(options,args);
@@ -125,7 +115,7 @@ public class SpringBootLearnApplication extends SpringBootServletInitializer
             }
         } catch (ParseException pe) {
             logger.info("main...ParseException..." + pe);
-        }
+        }*/
         SpringApplication.run(SpringBootLearnApplication.class, args);
         logger.info("it's time:" + System.currentTimeMillis());
     }
@@ -137,11 +127,33 @@ public class SpringBootLearnApplication extends SpringBootServletInitializer
      * 8:15,8:30,8:45
      */
 //    @Scheduled(cron = "0 15,30,45 7,8 6/1 * ?")
-    @Scheduled(fixedRate =60000)
+//    @Scheduled(fixedRate =60000)
     public void execTransmitTask(){
         logger.info("开始传输...");
-        Map<String,Object> map = FTPUtil.uploadSpecifiedSuffixFile(fromPath,toPath,suffix);
-        logger.info("传输成功...");
-        logger.info("传输失败...");
+        boolean flag = FTPUtil.uploadSpecifiedSuffixFile(fromPath,toPath,suffix);
+        if (flag){
+            logger.info("传输成功...");
+        }else {
+            logger.info("传输失败...");
+        }
+    }
+
+
+
+    @Autowired
+    CommonService commonService;
+
+
+    @Scheduled(fixedRate =60000)
+    public void execDataSourceConnection(){
+        List<Map<String,Object>> simpleList =  commonService.getAreaSimpleList();
+        List<Map<String,Object>> simpleList2 =  commonService.getAreaByNameList("北京");
+        if (simpleList2.size() > 0){
+            String name = "";
+            for (Map<String,Object> simpleMap : simpleList2){
+                name = simpleMap.get("name").toString();
+                logger.info("bj..." + name);
+            }
+        }
     }
 }
